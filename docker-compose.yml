@@ -12,17 +12,26 @@ services:
       MAX_CONCURRENT_SCANS: ${MAX_CONCURRENT_SCANS:-2}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-20}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      JOB_RETENTION_MS: ${JOB_RETENTION_MS:-3600000}
+      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-30000}
+      SENTRY_DSN: ${SENTRY_DSN:-}
       PLAYWRIGHT_HEADLESS: "true"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "2"
     healthcheck:
       test:
         [
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 30s
+    stop_grace_period: 35s

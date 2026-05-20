@@ -93,14 +93,34 @@ docker compose up --build
 | `RATE_LIMIT_MAX` | `20` | Max scan requests per window |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window (ms) |
 | `JOB_RETENTION_MS` | `3600000` | How long completed jobs are kept (ms) |
+| `SHUTDOWN_DRAIN_MS` | `30000` | Graceful shutdown drain timeout (ms) |
+| `SENTRY_DSN` | *(optional)* | Sentry DSN for scan failure reporting |
 | `LOG_LEVEL` | `info` / `debug` | Pino log level |
 | `PLAYWRIGHT_HEADLESS` | `true` | Run browser headless |
+
+## Operations
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/health` | Liveness — process is up |
+| `GET /api/health/ready` | Readiness — Chromium available (used by Docker healthcheck) |
+| `GET /api/metrics` | Prometheus metrics scrape target |
+
+Docker Compose sets **2 GB / 2 CPU** limits and a **35s** stop grace period for draining scans on shutdown.
 
 ## API
 
 ### `GET /api/health`
 
 Returns service health and uptime. No authentication required.
+
+### `GET /api/health/ready`
+
+Returns `200` when Chromium is ready to scan. Returns `503` during shutdown or if the browser cannot launch.
+
+### `GET /api/metrics`
+
+Prometheus exposition format. No authentication required — restrict access at the network layer in production.
 
 ### `POST /api/scan`
 

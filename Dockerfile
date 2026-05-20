@@ -6,6 +6,7 @@ RUN corepack enable
 
 FROM base AS deps
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
 COPY package.json yarn.lock .yarnrc.yml ./
 RUN yarn install --immutable
 
@@ -21,8 +22,11 @@ FROM mcr.microsoft.com/playwright:v1.60.0-noble AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOST=0.0.0.0
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_HEADLESS=true
 
 COPY package.json ./
 COPY --from=prod-deps /app/node_modules ./node_modules
@@ -33,7 +37,7 @@ USER pwuser
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "dist/index.js"]

@@ -80,29 +80,26 @@ Responses include optional `phase` extracted from `[scan:phase]` error tags.
 
 ## Deployment & ops
 
-### 8. Set Docker resource limits
+### 8. Set Docker resource limits **Done**
 
-Playwright needs headroom. In `docker-compose.yml`:
+`docker-compose.yml` limits the worker to **2 GB RAM** and **2 CPUs**. `stop_grace_period: 35s` aligns with scan drain timeout.
 
-```yaml
-deploy:
-  resources:
-    limits:
-      memory: 2G
-      cpus: "2"
-```
+### 9. Graceful shutdown for in-flight scans **Done**
 
-Without limits, one runaway scan can affect the whole VPS.
+On `SIGTERM` / `SIGINT`:
 
-### 9. Graceful shutdown for in-flight scans
+1. Stop accepting new HTTP connections
+2. Reject new scan jobs with `503`
+3. Drain in-flight jobs (configurable via `SHUTDOWN_DRAIN_MS`, default 30s)
+4. Close the shared Chromium browser
 
-`SIGTERM` closes the HTTP server but does not wait for active scans to finish. Track in-flight work and either drain or cancel cleanly on shutdown.
+### 10. Observability **Done**
 
-### 10. Observability
-
-- `/api/health` is good — add `/api/health/ready` that verifies Chromium can launch
-- Prometheus metrics: scan count, duration histogram, active scans, error rate
-- Optional: push scan failures to Sentry
+- `GET /api/health` — liveness (process up)
+- `GET /api/health/live` — alias for liveness
+- `GET /api/health/ready` — readiness (Chromium can launch; returns `503` while shutting down)
+- `GET /api/metrics` — Prometheus metrics (`scanner_scans_total`, `scanner_scan_duration_seconds`, `scanner_scans_active`, `scanner_scan_errors_total`, plus Node.js defaults)
+- Optional **Sentry** when `SENTRY_DSN` is set (scan failures reported automatically)
 
 ---
 
@@ -151,8 +148,8 @@ Current tests cover validation and security helpers. Add:
 4. ~~Optional screenshot + async job API~~ **Done**
 5. Zod validation *(API quality)*
 6. Async job queue with Redis/BullMQ *(when scaling beyond single VPS)*
-7. Docker resource limits + graceful shutdown *(deployment hardening)*
-8. Observability metrics *(production monitoring)*
+7. ~~Docker resource limits + graceful shutdown~~ **Done**
+8. ~~Observability metrics~~ **Done**
 
 ---
 
