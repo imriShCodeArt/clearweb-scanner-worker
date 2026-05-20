@@ -63,11 +63,13 @@ Job status progresses through `queued` → `running` → `completed` or `failed`
 
 ## Docker
 
-Set `API_KEY` in `.env`, then:
+Set `API_KEY` in `.env` (at least 32 characters for production), then:
 
 ```bash
 docker compose up --build
 ```
+
+For production deployment (GHCR image, VPS, nginx, monitoring), see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 
 ## Scripts
 
@@ -87,7 +89,9 @@ docker compose up --build
 | `PORT` | `3000` | HTTP port |
 | `HOST` | `0.0.0.0` | Bind address |
 | `NODE_ENV` | `development` | Environment |
-| `API_KEY` | *(required)* | Bearer token for scan requests |
+| `API_KEY` | *(required)* | Bearer token for scan requests (min 32 chars in production) |
+| `METRICS_API_KEY` | *(optional)* | When set, protects `GET /api/metrics` |
+| `TRUST_PROXY` | `false` | Set `1`/`true` or hop count when behind a reverse proxy |
 | `SCAN_TIMEOUT_MS` | `30000` | Scan time budget |
 | `MAX_CONCURRENT_SCANS` | `2` | Max parallel scans |
 | `RATE_LIMIT_MAX` | `20` | Max scan requests per window |
@@ -104,9 +108,9 @@ docker compose up --build
 |----------|---------|
 | `GET /api/health` | Liveness — process is up |
 | `GET /api/health/ready` | Readiness — Chromium available (used by Docker healthcheck) |
-| `GET /api/metrics` | Prometheus metrics scrape target |
+| `GET /api/metrics` | Prometheus metrics (optional API key via `METRICS_API_KEY`) |
 
-Docker Compose sets **2 GB / 2 CPU** limits and a **35s** stop grace period for draining scans on shutdown.
+Docker Compose binds to **127.0.0.1** by default, sets **4 GB / 2 CPU** limits, log rotation, and a **35s** stop grace period for draining scans on shutdown.
 
 ## API
 
@@ -120,7 +124,7 @@ Returns `200` when Chromium is ready to scan. Returns `503` during shutdown or i
 
 ### `GET /api/metrics`
 
-Prometheus exposition format. No authentication required — restrict access at the network layer in production.
+Prometheus exposition format. When `METRICS_API_KEY` is set, requires the same Bearer / `X-Api-Key` auth as scan routes. Otherwise restrict access at the network layer.
 
 ### `POST /api/scan`
 
@@ -156,4 +160,4 @@ Error codes: `400` validation/SSRF, `401` auth, `404` unknown job, `429` rate li
 
 ## CI
 
-GitHub Actions runs lint, typecheck, build, tests, and a Docker smoke test on push/PR to `main`.
+GitHub Actions runs lint, typecheck, build, tests, and a Docker smoke test on push/PR to `main`. Pushes to `main` also publish a container image to GHCR and can auto-deploy to a VPS when configured — see [DEPLOYMENT.md](./DEPLOYMENT.md).

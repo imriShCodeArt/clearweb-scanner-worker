@@ -109,9 +109,9 @@ On `SIGTERM` / `SIGINT`:
 
 Replace manual `body.url` checks with a schema — validates types, max URL length, timeout bounds, and gives consistent error messages.
 
-### 12. Consolidate config
+### 12. ~~Consolidate config~~ ✅
 
-Timeout is split between `src/config/env.ts` and `src/config/scan.ts`. Merge into one config module to avoid drift.
+Timeout and navigation settings live in `src/config/env.ts`.
 
 ### 13. Clean up dead code
 
