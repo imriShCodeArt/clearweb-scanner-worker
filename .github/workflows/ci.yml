@@ -13,16 +13,19 @@ concurrency:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: yarn
 
       - name: Enable Corepack
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare yarn@4.12.0 --activate
 
       - name: Install dependencies
         run: yarn install --immutable
@@ -42,6 +45,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: lint-and-test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -51,13 +55,18 @@ jobs:
       - name: Smoke test container
         run: |
           docker run -d --name scanner-worker -p 3000:3000 clearweb-scanner-worker:ci
+
           for i in $(seq 1 30); do
             if curl -sf http://localhost:3000/api/health; then
               echo "Health check passed"
+              docker logs scanner-worker
+              docker stop scanner-worker
               exit 0
             fi
             sleep 2
           done
+
           echo "Health check failed"
           docker logs scanner-worker
+          docker stop scanner-worker
           exit 1
