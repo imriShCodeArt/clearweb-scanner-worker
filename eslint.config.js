@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ["dist/**", "node_modules/**", "src/lib/scanner/persist.ts"],
+    ignores: ["dist/**", "node_modules/**"],
   },
   {
     files: ["src/**/*.ts"],

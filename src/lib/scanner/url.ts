@@ -30,10 +30,9 @@ export function parseAndValidateUrl(raw: string): URL {
 
   // Auto-prepend https:// when no protocol is given so users can paste
   // bare domains like "example.com".
-  const withProtocol =
-    trimmed.startsWith('http://') || trimmed.startsWith('https://')
-      ? trimmed
-      : `https://${trimmed}`;
+  const withProtocol = trimmed.includes("://")
+    ? trimmed
+    : `https://${trimmed}`;
 
   let parsed: URL;
   try {

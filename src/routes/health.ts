@@ -42,7 +42,7 @@ export function createHealthRouter(config: Config): Router {
     }
 
     try {
-      await getScanner(config).verifyReady();
+      await getScanner().verifyReady();
       const response: ReadyResponse = {
         status: "ready",
         chromium: "ok",

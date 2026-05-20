@@ -1,4 +1,3 @@
-import { scansActive } from "../lib/metrics.js";
 import type { Config } from "../config/env.js";
 import {
   computeScore,
@@ -10,6 +9,7 @@ import {
   normalizeUrl,
   parseAndValidateUrl,
 } from "../lib/scanner/url.js";
+import { scansActive } from "../lib/metrics.js";
 import type { ScanRequest, ScanResponse } from "../types/index.js";
 import { BrowserPool } from "./browser-pool.js";
 import { ScanSemaphore } from "./concurrency.js";
@@ -71,9 +71,16 @@ export class PlaywrightScanner implements Scanner {
 
 let scannerInstance: PlaywrightScanner | null = null;
 
-export function getScanner(config: Config): PlaywrightScanner {
+export function initScanner(config: Config): PlaywrightScanner {
   if (!scannerInstance) {
     scannerInstance = new PlaywrightScanner(config);
+  }
+  return scannerInstance;
+}
+
+export function getScanner(): PlaywrightScanner {
+  if (!scannerInstance) {
+    throw new Error("Scanner not initialized. Call initScanner() at startup.");
   }
   return scannerInstance;
 }

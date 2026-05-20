@@ -3,7 +3,7 @@ import { config } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { initSentry } from "./lib/sentry.js";
 import { drainJobQueue } from "./services/job-queue.js";
-import { closeScanner } from "./services/scanner.js";
+import { closeScanner, initScanner } from "./services/scanner.js";
 import {
   beginShutdown,
   isShuttingDown,
@@ -12,6 +12,7 @@ import {
 } from "./services/shutdown.js";
 
 initSentry();
+initScanner(config);
 
 registerDrainHandler(async () => {
   await drainJobQueue();

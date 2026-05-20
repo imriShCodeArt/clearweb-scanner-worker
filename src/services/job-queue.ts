@@ -57,7 +57,7 @@ export class JobQueue {
     logger.info({ jobId, url: request.url, requestId: jobId }, "scan started");
 
     try {
-      const scanner = getScanner(this.config);
+      const scanner = getScanner();
       const result = await scanner.scan(request, jobId);
       jobStore.complete(jobId, result);
 
