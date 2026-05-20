@@ -2,11 +2,13 @@ import { Router } from "express";
 
 import type { Config } from "../config/env.js";
 import { getMetricsSnapshot, metricsRegister } from "../lib/metrics.js";
+import { createOptionalApiKeyAuth } from "../middleware/metrics-auth.js";
 import { getScanner } from "../services/scanner.js";
 import { isShuttingDown } from "../services/shutdown.js";
 import type { HealthResponse, ReadyResponse } from "../types/index.js";
+import packageJson from "../../package.json" with { type: "json" };
 
-const packageVersion = "0.1.0";
+const packageVersion = packageJson.version;
 
 export function createHealthRouter(config: Config): Router {
   const router = Router();
@@ -58,10 +60,14 @@ export function createHealthRouter(config: Config): Router {
     }
   });
 
-  router.get("/metrics", async (_req, res) => {
-    res.setHeader("Content-Type", metricsRegister.contentType);
-    res.send(await getMetricsSnapshot());
-  });
+  router.get(
+    "/metrics",
+    createOptionalApiKeyAuth(config.metricsApiKey),
+    async (_req, res) => {
+      res.setHeader("Content-Type", metricsRegister.contentType);
+      res.send(await getMetricsSnapshot());
+    }
+  );
 
   return router;
 }

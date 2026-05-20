@@ -6,6 +6,7 @@ const DEFAULT_RATE_LIMIT_MAX = 20;
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_JOB_RETENTION_MS = 3_600_000;
 const DEFAULT_SHUTDOWN_DRAIN_MS = 30_000;
+const MIN_PRODUCTION_API_KEY_LENGTH = 32;
 
 function parsePort(value: string | undefined): number {
   if (!value) return DEFAULT_PORT;
@@ -16,11 +17,11 @@ function parsePort(value: string | undefined): number {
   return port;
 }
 
-function parseTimeout(value: string | undefined): number {
-  if (!value) return DEFAULT_SCAN_TIMEOUT_MS;
+function parseTimeout(value: string | undefined, fallback: number, name: string): number {
+  if (!value) return fallback;
   const timeout = Number.parseInt(value, 10);
   if (Number.isNaN(timeout) || timeout < 1000) {
-    throw new Error(`Invalid SCAN_TIMEOUT_MS: ${value}`);
+    throw new Error(`Invalid ${name}: ${value}`);
   }
   return timeout;
 }
@@ -38,9 +39,24 @@ function parsePositiveInt(
   return parsed;
 }
 
+function parseTrustProxy(value: string | undefined): boolean | number {
+  if (!value) return false;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  const hops = Number.parseInt(value, 10);
+  if (!Number.isNaN(hops) && hops >= 0) return hops;
+  throw new Error(`Invalid TRUST_PROXY: ${value}`);
+}
+
 function parseApiKey(value: string | undefined, nodeEnv: string): string {
   if (value && value.trim().length > 0) {
-    return value.trim();
+    const apiKey = value.trim();
+    if (nodeEnv === "production" && apiKey.length < MIN_PRODUCTION_API_KEY_LENGTH) {
+      throw new Error(
+        `API_KEY must be at least ${MIN_PRODUCTION_API_KEY_LENGTH} characters in production`
+      );
+    }
+    return apiKey;
   }
 
   if (nodeEnv === "test") {
@@ -50,12 +66,30 @@ function parseApiKey(value: string | undefined, nodeEnv: string): string {
   throw new Error("API_KEY is required");
 }
 
+function parseOptionalSecret(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+const nodeEnv = process.env.NODE_ENV ?? "development";
+
 export const config = {
   port: parsePort(process.env.PORT),
   host: process.env.HOST ?? DEFAULT_HOST,
-  nodeEnv: process.env.NODE_ENV ?? "development",
-  apiKey: parseApiKey(process.env.API_KEY, process.env.NODE_ENV ?? "development"),
-  scanTimeoutMs: parseTimeout(process.env.SCAN_TIMEOUT_MS),
+  nodeEnv,
+  apiKey: parseApiKey(process.env.API_KEY, nodeEnv),
+  metricsApiKey: parseOptionalSecret(process.env.METRICS_API_KEY),
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  scanTimeoutMs: parseTimeout(
+    process.env.SCAN_TIMEOUT_MS,
+    DEFAULT_SCAN_TIMEOUT_MS,
+    "SCAN_TIMEOUT_MS"
+  ),
+  scanNavigationTimeoutMs: parseTimeout(
+    process.env.SCAN_NAVIGATION_TIMEOUT_MS ?? process.env.SCAN_TIMEOUT_MS,
+    DEFAULT_SCAN_TIMEOUT_MS,
+    "SCAN_NAVIGATION_TIMEOUT_MS"
+  ),
   maxConcurrentScans: parsePositiveInt(
     process.env.MAX_CONCURRENT_SCANS,
     DEFAULT_MAX_CONCURRENT_SCANS,
@@ -83,7 +117,7 @@ export const config = {
     DEFAULT_SHUTDOWN_DRAIN_MS,
     "SHUTDOWN_DRAIN_MS"
   ),
-  sentryDsn: process.env.SENTRY_DSN?.trim() || undefined,
+  sentryDsn: parseOptionalSecret(process.env.SENTRY_DSN),
   playwright: {
     headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
   },

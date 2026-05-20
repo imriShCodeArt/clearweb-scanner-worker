@@ -3,6 +3,10 @@ import { Router } from "express";
 
 import type { Config } from "../config/env.js";
 import { mapErrorToResponse } from "../lib/errors.js";
+import {
+  formatZodError,
+  scanRequestSchema,
+} from "../lib/validation/scan.js";
 import { createApiKeyAuth } from "../middleware/auth.js";
 import { getJobQueue } from "../services/job-queue.js";
 import { isShuttingDown } from "../services/shutdown.js";
@@ -12,10 +16,11 @@ import type {
   ErrorResponse,
   ScanJobCreatedResponse,
   ScanJobResponse,
-  ScanRequest,
 } from "../types/index.js";
 
-function toJobResponse(job: NonNullable<ReturnType<ReturnType<typeof getJobStore>["get"]>>): ScanJobResponse {
+function toJobResponse(
+  job: NonNullable<ReturnType<ReturnType<typeof getJobStore>["get"]>>
+): ScanJobResponse {
   return {
     jobId: job.jobId,
     status: job.status,
@@ -45,7 +50,7 @@ export function createScanRouter(config: Config): Router {
         };
         res.status(429).json(error);
       },
-    }),
+    })
   );
 
   router.post("/", (req, res) => {
@@ -58,19 +63,18 @@ export function createScanRouter(config: Config): Router {
       return;
     }
 
-    const body = req.body as Partial<ScanRequest>;
-
-    if (!body.url || typeof body.url !== "string") {
+    const parsedBody = scanRequestSchema.safeParse(req.body);
+    if (!parsedBody.success) {
       const error: ErrorResponse = {
         error: "Bad Request",
-        message: "Missing required field: url",
+        message: formatZodError(parsedBody.error),
       };
       res.status(400).json(error);
       return;
     }
 
     try {
-      parseAndValidateUrl(body.url);
+      parseAndValidateUrl(parsedBody.data.url);
     } catch (err) {
       if (err instanceof ScanUrlError) {
         const mapped = mapErrorToResponse(err);
@@ -81,15 +85,12 @@ export function createScanRouter(config: Config): Router {
     }
 
     const jobQueue = getJobQueue(config);
-    const jobId = jobQueue.enqueue({
-      url: body.url,
-      options: body.options,
-    });
+    const jobId = jobQueue.enqueue(parsedBody.data);
 
     const response: ScanJobCreatedResponse = {
       jobId,
       status: "queued",
-      url: body.url,
+      url: parsedBody.data.url,
     };
 
     res.status(202).json(response);

@@ -55,4 +55,25 @@ describe("health endpoints", () => {
     expect(response.status).toBe(200);
     expect(response.text).toContain("scanner_scans_total");
   });
+
+  it("protects metrics when METRICS_API_KEY is configured", async () => {
+    vi.resetModules();
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("METRICS_API_KEY", "metrics-secret-key-for-tests!!");
+
+    const { createApp: createAppWithMetricsAuth } = await import("../app.js");
+    const { config: metricsConfig } = await import("../config/env.js");
+    const authedApp = createAppWithMetricsAuth(metricsConfig);
+
+    const denied = await request(authedApp).get("/api/metrics");
+    expect(denied.status).toBe(401);
+
+    const allowed = await request(authedApp)
+      .get("/api/metrics")
+      .set("Authorization", "Bearer metrics-secret-key-for-tests!!");
+    expect(allowed.status).toBe(200);
+
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
 });

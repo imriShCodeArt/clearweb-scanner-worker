@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { type Browser, type Page, chromium } from "playwright";
 
-import { SCAN_NAVIGATION_TIMEOUT_MS } from "../../config/scan.js";
+import { config } from "../../config/env.js";
 import { isWcagMappedViolation } from "../audit/wcagViolation.js";
 import { logger } from "../logger.js";
 import { updateScanProgress } from "./scan-progress.js";
@@ -421,7 +421,7 @@ async function runAxeScanWithBrowser(
 
     const page = await inScanPhase('new_page', () => context.newPage());
     await reportScanProgress(scanId, 'new_page', 24);
-    page.setDefaultNavigationTimeout(SCAN_NAVIGATION_TIMEOUT_MS);
+    page.setDefaultNavigationTimeout(config.scanNavigationTimeoutMs);
 
     // Track the HTTP status of the main document response only.
     let statusCode = 0;
@@ -440,7 +440,7 @@ async function runAxeScanWithBrowser(
     await inScanPhase('goto', () =>
       page.goto(targetUrl, {
         waitUntil: 'domcontentloaded',
-        timeout: SCAN_NAVIGATION_TIMEOUT_MS,
+        timeout: config.scanNavigationTimeoutMs,
       }),
     );
     await reportScanProgress(scanId, 'goto', 38);
