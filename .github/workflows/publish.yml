@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # github.repository keeps owner casing; OCI refs must be lowercase
       - name: Set image name
