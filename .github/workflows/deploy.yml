@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Image tag to deploy (default: latest)"
+        description: "Image tag to deploy"
         required: false
         default: latest
+
   workflow_run:
-    workflows: [Publish container image]
+    workflows: ["Publish container image"]
     types: [completed]
     branches: [main]
 
@@ -20,8 +21,13 @@ jobs:
   deploy:
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success')
+      github.event.workflow_run.conclusion == 'success'
+
     runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
 
     steps:
       - name: Deploy over SSH
@@ -33,11 +39,17 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
+
             DEPLOY_DIR="${{ secrets.VPS_DEPLOY_DIR }}"
-            IMAGE_TAG="${{ github.event.inputs.image_tag || 'latest' }}"
+            IMAGE_TAG="${{ env.IMAGE_TAG }}"
+
+            echo "Deploying image tag: $IMAGE_TAG"
+            echo "Deploy directory: $DEPLOY_DIR"
 
             cd "$DEPLOY_DIR"
+
             export IMAGE_TAG
+
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f

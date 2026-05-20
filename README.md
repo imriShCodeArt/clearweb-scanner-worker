@@ -80,7 +80,8 @@ For production deployment (GHCR image, VPS, nginx, monitoring), see **[DEPLOYMEN
 | `yarn start` | Run production build |
 | `yarn lint` | ESLint |
 | `yarn typecheck` | TypeScript check |
-| `yarn test` | Run tests |
+| `yarn test` | Run unit tests |
+| `yarn test:integration` | Run Playwright scan against example.com (set `RUN_INTEGRATION_TESTS=true`) |
 
 ## Environment variables
 
