@@ -1,32 +1,18 @@
 services:
   scanner-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/imrishcodeart/clearweb-scanner-worker:${IMAGE_TAG:-latest}
+    pull_policy: always
 
     ports:
       - "${BIND_HOST:-127.0.0.1}:${PORT:-3000}:3000"
+
+    env_file:
+      - .env
 
     environment:
       NODE_ENV: production
       PORT: "3000"
       HOST: "0.0.0.0"
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-
-      API_KEY: ${API_KEY:?Set API_KEY in .env (min 32 characters)}
-      METRICS_API_KEY: ${METRICS_API_KEY:-}
-      TRUST_PROXY: ${TRUST_PROXY:-1}
-
-      SCAN_TIMEOUT_MS: ${SCAN_TIMEOUT_MS:-30000}
-      SCAN_NAVIGATION_TIMEOUT_MS: ${SCAN_NAVIGATION_TIMEOUT_MS:-}
-      MAX_CONCURRENT_SCANS: ${MAX_CONCURRENT_SCANS:-2}
-      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-20}
-      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
-      JOB_RETENTION_MS: ${JOB_RETENTION_MS:-3600000}
-      SHUTDOWN_DRAIN_MS: ${SHUTDOWN_DRAIN_MS:-30000}
-      SENTRY_DSN: ${SENTRY_DSN:-}
-
-      PLAYWRIGHT_HEADLESS: "true"
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
 
     restart: unless-stopped

@@ -59,7 +59,7 @@ jobs:
           docker run -d \
             --name scanner-worker \
             -p 3000:3000 \
-            -e API_KEY=ci-test-key \
+            -e API_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
             clearweb-scanner-worker:ci
 
           for i in $(seq 1 30); do
