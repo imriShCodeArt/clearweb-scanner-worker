@@ -55,6 +55,13 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface ReadyResponse {
+  status: "ready" | "not_ready";
+  chromium?: "ok";
+  reason?: "shutting_down" | "chromium_unavailable";
+  message?: string;
+}
+
 export interface ErrorResponse {
   error: string;
   message: string;

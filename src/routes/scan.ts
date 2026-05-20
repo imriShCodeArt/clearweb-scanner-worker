@@ -5,6 +5,7 @@ import type { Config } from "../config/env.js";
 import { mapErrorToResponse } from "../lib/errors.js";
 import { createApiKeyAuth } from "../middleware/auth.js";
 import { getJobQueue } from "../services/job-queue.js";
+import { isShuttingDown } from "../services/shutdown.js";
 import { getJobStore } from "../services/job-store.js";
 import { ScanUrlError, parseAndValidateUrl } from "../lib/scanner/url.js";
 import type {
@@ -48,6 +49,15 @@ export function createScanRouter(config: Config): Router {
   );
 
   router.post("/", (req, res) => {
+    if (isShuttingDown()) {
+      const error: ErrorResponse = {
+        error: "Service Unavailable",
+        message: "Server is shutting down",
+      };
+      res.status(503).json(error);
+      return;
+    }
+
     const body = req.body as Partial<ScanRequest>;
 
     if (!body.url || typeof body.url !== "string") {

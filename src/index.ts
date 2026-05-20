@@ -1,7 +1,21 @@
 import { createApp } from "./app.js";
 import { config } from "./config/env.js";
 import { logger } from "./lib/logger.js";
+import { initSentry } from "./lib/sentry.js";
+import { drainJobQueue } from "./services/job-queue.js";
 import { closeScanner } from "./services/scanner.js";
+import {
+  beginShutdown,
+  isShuttingDown,
+  registerDrainHandler,
+  runDrainHandlers,
+} from "./services/shutdown.js";
+
+initSentry();
+
+registerDrainHandler(async () => {
+  await drainJobQueue();
+});
 
 const app = createApp(config);
 
@@ -12,15 +26,32 @@ const server = app.listen(config.port, config.host, () => {
   );
 });
 
+let shutdownPromise: Promise<void> | null = null;
+
 async function shutdown(signal: string): Promise<void> {
-  logger.info({ signal }, "Shutting down");
+  if (shutdownPromise) return shutdownPromise;
 
-  await new Promise<void>((resolve, reject) => {
-    server.close((err) => (err ? reject(err) : resolve()));
-  });
+  shutdownPromise = (async () => {
+    if (isShuttingDown()) return;
+    beginShutdown();
 
-  await closeScanner();
-  process.exit(0);
+    logger.info(
+      { signal, drainMs: config.shutdownDrainMs },
+      "Shutting down — draining in-flight scans"
+    );
+
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()));
+    });
+
+    await runDrainHandlers(config.shutdownDrainMs);
+    await closeScanner();
+
+    logger.info("Shutdown complete");
+    process.exit(0);
+  })();
+
+  return shutdownPromise;
 }
 
 process.on("SIGTERM", () => {

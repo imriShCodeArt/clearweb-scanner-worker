@@ -1,3 +1,4 @@
+import { scansActive } from "../lib/metrics.js";
 import type { Config } from "../config/env.js";
 import {
   computeScore,
@@ -15,6 +16,8 @@ import { ScanSemaphore } from "./concurrency.js";
 
 export interface Scanner {
   scan(request: ScanRequest, scanId?: string): Promise<ScanResponse>;
+  verifyReady(): Promise<void>;
+  getActiveScanCount(): number;
   close(): Promise<void>;
 }
 
@@ -27,6 +30,14 @@ export class PlaywrightScanner implements Scanner {
     this.semaphore = new ScanSemaphore(config.maxConcurrentScans);
   }
 
+  getActiveScanCount(): number {
+    return this.semaphore.activeCount;
+  }
+
+  async verifyReady(): Promise<void> {
+    await this.browserPool.verifyReady();
+  }
+
   async scan(request: ScanRequest, scanId?: string): Promise<ScanResponse> {
     const parsed = parseAndValidateUrl(request.url);
     await assertUrlResolvedSafely(parsed);
@@ -34,18 +45,23 @@ export class PlaywrightScanner implements Scanner {
     const budgetMs = request.options?.timeout ?? this.config.scanTimeoutMs;
     const includeScreenshot = request.options?.includeScreenshot ?? false;
 
-    return this.semaphore.run(async () => {
-      const browser = await this.browserPool.getBrowser();
-      const result = await withScanBudget(budgetMs, () =>
-        runAxeScan(url, { browser, scanId, includeScreenshot }),
-      );
+    scansActive.inc();
+    try {
+      return await this.semaphore.run(async () => {
+        const browser = await this.browserPool.getBrowser();
+        const result = await withScanBudget(budgetMs, () =>
+          runAxeScan(url, { browser, scanId, includeScreenshot }),
+        );
 
-      return {
-        ...result,
-        score: computeScore(result),
-        timestamp: new Date().toISOString(),
-      };
-    });
+        return {
+          ...result,
+          score: computeScore(result),
+          timestamp: new Date().toISOString(),
+        };
+      });
+    } finally {
+      scansActive.dec();
+    }
   }
 
   async close(): Promise<void> {

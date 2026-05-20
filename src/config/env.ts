@@ -5,6 +5,7 @@ const DEFAULT_MAX_CONCURRENT_SCANS = 2;
 const DEFAULT_RATE_LIMIT_MAX = 20;
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
 const DEFAULT_JOB_RETENTION_MS = 3_600_000;
+const DEFAULT_SHUTDOWN_DRAIN_MS = 30_000;
 
 function parsePort(value: string | undefined): number {
   if (!value) return DEFAULT_PORT;
@@ -77,6 +78,12 @@ export const config = {
     DEFAULT_JOB_RETENTION_MS,
     "JOB_RETENTION_MS"
   ),
+  shutdownDrainMs: parsePositiveInt(
+    process.env.SHUTDOWN_DRAIN_MS,
+    DEFAULT_SHUTDOWN_DRAIN_MS,
+    "SHUTDOWN_DRAIN_MS"
+  ),
+  sentryDsn: process.env.SENTRY_DSN?.trim() || undefined,
   playwright: {
     headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
   },

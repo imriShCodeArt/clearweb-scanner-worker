@@ -16,6 +16,7 @@ import { createApp } from "./app.js";
 import { config } from "./config/env.js";
 import { resetJobQueueForTests } from "./services/job-queue.js";
 import { resetJobStoreForTests } from "./services/job-store.js";
+import { resetShutdownStateForTests } from "./services/shutdown.js";
 import type { ScanResponse } from "./types/index.js";
 
 const authHeader = { Authorization: `Bearer ${config.apiKey}` };
@@ -56,6 +57,7 @@ describe("scan endpoint", () => {
   beforeEach(() => {
     resetJobStoreForTests();
     resetJobQueueForTests();
+    resetShutdownStateForTests();
     scanMock.mockReset();
     scanMock.mockResolvedValue(mockScanResult);
   });

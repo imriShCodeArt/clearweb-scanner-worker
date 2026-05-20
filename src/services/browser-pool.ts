@@ -14,6 +14,12 @@ export class BrowserPool {
     return this.browser;
   }
 
+  async verifyReady(): Promise<void> {
+    const browser = await this.getBrowser();
+    const context = await browser.newContext();
+    await context.close();
+  }
+
   async close(): Promise<void> {
     if (this.browser?.isConnected()) {
       await this.browser.close();
