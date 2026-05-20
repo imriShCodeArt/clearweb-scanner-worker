@@ -64,24 +64,4 @@ jobs:
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           docker pull "$IMAGE"
-
-          docker rm -f scanner-worker 2>/dev/null || true
-          docker run -d \
-            --name scanner-worker \
-            -p 3000:3000 \
-            -e API_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-            "$IMAGE"
-
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:3000/api/health/ready; then
-              echo "Readiness check passed"
-              docker rm -f scanner-worker
-              exit 0
-            fi
-            sleep 2
-          done
-
-          echo "Readiness check failed"
-          docker logs scanner-worker
-          docker rm -f scanner-worker
-          exit 1
+          bash scripts/docker-smoke.sh "$IMAGE"
