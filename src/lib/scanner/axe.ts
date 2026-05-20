@@ -30,7 +30,7 @@ async function inScanPhase<T>(phase: string, fn: () => Promise<T>): Promise<T> {
       }
       throw err;
     }
-    throw new Error(`${prefix}${String(err)}`);
+    throw new Error(`${prefix}${String(err)}`, { cause: err });
   }
 }
 
