@@ -51,20 +51,22 @@ After the first successful run of **Publish container image**, the image appears
 
 `.github/dependabot.yml` opens weekly PRs for npm and GitHub Actions updates. Review and merge after CI passes.
 
-### Optional: automatic deploy to VPS
+### Automatic deploy to VPS
 
 The **Deploy to VPS** workflow runs after a successful publish (or manually via **Actions → Deploy to VPS → Run workflow**).
 
-Add these **repository secrets** (**Settings → Secrets and variables → Actions**):
+Create a GitHub **Environment** named `production` (**Settings → Environments → New environment**), then add these **environment secrets**:
 
 | Secret | Example | Purpose |
 |--------|---------|---------|
 | `VPS_HOST` | `203.0.113.10` | Server IP or hostname |
 | `VPS_USER` | `deploy` | SSH user |
-| `VPS_SSH_KEY` | *(private key)* | PEM key for SSH |
-| `VPS_DEPLOY_DIR` | `/opt/clearweb-scanner-worker` | Directory with compose files on the server |
+| `VPS_SSH_KEY` | *(private key)* | PEM key for GitHub Actions SSH |
+| `VPS_DEPLOY_DIR` | `/home/deploy/clearweb-scanner-worker` | Directory with `.env` on the server |
 
-The deploy user needs permission to run `docker compose` (add to `docker` group).
+The deploy workflow uses `environment: production` so these secrets are loaded automatically.
+
+The deploy user needs permission to run `docker compose` (add to `docker` group). Each deploy copies the latest `docker-compose.prod.yml` from the repository to the VPS.
 
 ---
 
@@ -100,15 +102,12 @@ Do **not** open port 3000 publicly. The app listens on localhost only via `BIND_
 ### Create deploy directory
 
 ```bash
-sudo mkdir -p /opt/clearweb-scanner-worker
-sudo chown "$USER":"$USER" /opt/clearweb-scanner-worker
-cd /opt/clearweb-scanner-worker
+sudo mkdir -p /home/deploy/clearweb-scanner-worker
+sudo chown deploy:deploy /home/deploy/clearweb-scanner-worker
+cd /home/deploy/clearweb-scanner-worker
 ```
 
-Copy these files to the server (git clone, scp, or deploy workflow):
-
-- `docker-compose.prod.yml`
-- `.env` (create from `.env.example` — **never commit**)
+Create `.env` on the server (the workflow copies `docker-compose.prod.yml` automatically on each deploy):
 
 If the GHCR package is private, log in first (see above).
 
@@ -131,7 +130,7 @@ METRICS_API_KEY=<another-64-char-hex>
 LOG_LEVEL=info
 TRUST_PROXY=1
 BIND_HOST=127.0.0.1
-PORT=3000
+HOST_PORT=3000
 SENTRY_DSN=https://...@sentry.io/...
 IMAGE_TAG=latest
 ```
@@ -139,6 +138,7 @@ IMAGE_TAG=latest
 | Variable | Production notes |
 |----------|------------------|
 | `API_KEY` | **Required**, min 32 characters |
+| `HOST_PORT` | Host port on `127.0.0.1` (default `3000`; container always uses `3000` internally) |
 | `METRICS_API_KEY` | Protects `/api/metrics` when set |
 | `TRUST_PROXY` | Set `1` behind nginx/Caddy |
 | `BIND_HOST` | Keep `127.0.0.1` |
@@ -152,7 +152,7 @@ IMAGE_TAG=latest
 ### Pull from GHCR (production)
 
 ```bash
-cd /opt/clearweb-scanner-worker
+cd /home/deploy/clearweb-scanner-worker
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml ps
@@ -228,7 +228,7 @@ Compose rotates logs at 10 MB × 3 files.
 ### Manual update
 
 ```bash
-cd /opt/clearweb-scanner-worker
+cd /home/deploy/clearweb-scanner-worker
 export IMAGE_TAG=latest   # or a git SHA tag from GHCR
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d

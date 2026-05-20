@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
 
     ports:
-      - "${BIND_HOST:-127.0.0.1}:${PORT:-3000}:3000"
+      - "${BIND_HOST:-127.0.0.1}:${HOST_PORT:-3000}:3000"
 
     environment:
       NODE_ENV: production

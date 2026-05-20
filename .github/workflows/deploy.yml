@@ -27,9 +27,21 @@ jobs:
     environment: production
 
     env:
-      IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
+      IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.image_tag || 'latest' }}
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy compose file to VPS
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.prod.yml"
+          target: ${{ secrets.VPS_DEPLOY_DIR }}
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -48,6 +60,19 @@ jobs:
 
             cd "$DEPLOY_DIR"
 
+            if [ ! -f .env ]; then
+              echo "Missing .env in $DEPLOY_DIR"
+              exit 1
+            fi
+
+            set -a
+            # shellcheck disable=SC1091
+            source .env
+            set +a
+
+            HOST_PORT="${HOST_PORT:-3000}"
+            BIND_HOST="${BIND_HOST:-127.0.0.1}"
+
             export IMAGE_TAG
 
             docker compose -f docker-compose.prod.yml pull
@@ -55,7 +80,7 @@ jobs:
             docker image prune -f
 
             for i in $(seq 1 30); do
-              if curl -sf http://127.0.0.1:3000/api/health/ready; then
+              if curl -sf "http://${BIND_HOST}:${HOST_PORT}/api/health/ready"; then
                 echo "Deploy healthy"
                 exit 0
               fi
