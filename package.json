@@ -1,0 +1,46 @@
+{
+  "name": "clearweb-scanner-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Containerized worker for website accessibility scanning",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "axe-core": "^4.10.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.5.2",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "playwright": "^1.60.0",
+    "playwright-core": "^1.60.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.27.0",
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.21",
+    "@types/supertest": "^6.0.3",
+    "eslint": "^9.27.0",
+    "pino-pretty": "^13.1.3",
+    "supertest": "^7.1.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.1",
+    "vitest": "^3.1.4"
+  },
+  "packageManager": "yarn@4.12.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "yarn": ">=4.0.0",
+    "npm": ">=999.0.0"
+  }
+}

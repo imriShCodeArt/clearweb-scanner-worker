@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.yarn/cache
+.yarn/install-state.gz
+.yarn/unplugged
+*.log
+.DS_Store
+Thumbs.db
+playwright-report/
+test-results/
+.vscode/
+.idea/
