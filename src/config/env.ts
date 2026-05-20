@@ -51,7 +51,7 @@ function parseTrustProxy(value: string | undefined): boolean | number {
 function parseApiKey(value: string | undefined, nodeEnv: string): string {
   if (value && value.trim().length > 0) {
     const apiKey = value.trim();
-    const ciSmokeTest = process.env.CI === "true";
+    const ciSmokeTest = process.env.SCANNER_CI_SMOKE === "true";
     if (
       nodeEnv === "production" &&
       !ciSmokeTest &&

@@ -66,7 +66,34 @@ Create a GitHub **Environment** named `production` (**Settings → Environments 
 
 The deploy workflow uses `environment: production` so these secrets are loaded automatically.
 
-The deploy user needs permission to run `docker compose` (add to `docker` group). Each deploy copies the latest `docker-compose.prod.yml` from the repository to the VPS.
+The deploy user needs permission to run `docker compose` (add to `docker` group). Each deploy writes the latest `docker-compose.prod.yml` from the repository to the VPS over SSH.
+
+#### SSH key for `VPS_SSH_KEY`
+
+Generate a dedicated deploy key (on your machine):
+
+```bash
+ssh-keygen -t ed25519 -f github-actions-deploy -N ""
+cat github-actions-deploy.pub >> /home/deploy/.ssh/authorized_keys
+```
+
+Copy the **entire private key** into the `VPS_SSH_KEY` secret, including the header/footer:
+
+```text
+-----BEGIN OPENSSH PRIVATE KEY-----
+...
+-----END OPENSSH PRIVATE KEY-----
+```
+
+Do not wrap the key in quotes. If deploy logs show `ssh: no key found`, the secret is malformed.
+
+Ensure port **22** is reachable from the internet (`sudo ufw allow OpenSSH`). GitHub-hosted runners connect from dynamic IPs, so the VPS must accept SSH on port 22 (standard for CI deploy).
+
+Test from your machine:
+
+```bash
+ssh -i github-actions-deploy deploy@YOUR_VPS_IP
+```
 
 ---
 

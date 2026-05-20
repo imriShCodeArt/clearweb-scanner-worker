@@ -29,9 +29,9 @@ describe("config", () => {
     expect(config.nodeEnv).toBe("production");
   });
 
-  it("accepts a short API_KEY in production when CI=true", async () => {
+  it("accepts a short API_KEY in production when SCANNER_CI_SMOKE=true", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("CI", "true");
+    vi.stubEnv("SCANNER_CI_SMOKE", "true");
     vi.stubEnv("API_KEY", "ci-test-key");
 
     const { config } = await import("./env.js");

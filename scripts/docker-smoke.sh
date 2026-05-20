@@ -10,7 +10,7 @@ docker rm -f scanner-worker 2>/dev/null || true
 docker run -d \
   --name scanner-worker \
   -p "${BIND_HOST}:${HOST_PORT}:3000" \
-  -e CI=true \
+  -e SCANNER_CI_SMOKE=true \
   -e API_KEY="$API_KEY" \
   "$IMAGE"
 
