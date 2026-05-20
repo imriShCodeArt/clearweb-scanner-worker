@@ -21,7 +21,9 @@ Scan endpoints require an API key on every request. Send either header:
 
 Missing or invalid keys return `401 Unauthorized`.
 
-Health and metrics endpoints are unauthenticated by default on the worker, but in production they are typically **not exposed publicly** — only `/api/scan` is proxied through TLS at `scanner.clearweb.co.il`.
+**Frontend apps:** never call this API directly from the browser with the API key. Proxy through your backend (Next.js API route, server action, etc.) and expose your own endpoints to the client.
+
+Health and metrics endpoints are unauthenticated by default on the worker, but in production they are typically **not exposed publicly** — only `/api/scan` is proxied through TLS at `scanner.clearweb.co.il` (this matches both `POST /api/scan` and `GET /api/scan/:jobId`).
 
 ---
 
@@ -35,6 +37,141 @@ Scanning is **asynchronous**:
 Job status flow: `queued` → `running` → `completed` | `failed`
 
 Completed jobs are retained in memory for `JOB_RETENTION_MS` (default 1 hour), then return `404`.
+
+Poll every **2–3 seconds**. Most scans finish in **15–45 seconds**.
+
+### Response fields by job status
+
+| `status` | `progress` | `result` | `error` |
+|----------|------------|----------|---------|
+| `queued` | optional | absent | absent |
+| `running` | optional | absent | absent |
+| `completed` | absent | present | absent |
+| `failed` | absent | absent | present |
+
+Scan failures are returned as **`200` with `status: "failed"`** on `GET /api/scan/:jobId`, not as `504` on the poll endpoint.
+
+---
+
+## TypeScript contract
+
+Copy-paste types matching the server implementation:
+
+```typescript
+// --- Request / create ---
+
+interface ScanRequest {
+  url: string; // required, 1–2048 chars, http/https only
+  options?: {
+    timeout?: number; // int, 1000–120000 ms (default: server 30000)
+    includeScreenshot?: boolean; // default false
+  };
+}
+
+interface ScanJobCreatedResponse {
+  jobId: string; // UUID v4
+  status: "queued";
+  url: string;
+}
+
+// --- Poll ---
+
+type ScanJobStatus = "queued" | "running" | "completed" | "failed";
+
+interface ScanJobResponse {
+  jobId: string;
+  status: ScanJobStatus;
+  url: string;
+  createdAt: string; // ISO 8601
+  updatedAt: string; // ISO 8601
+  progress?: ScanProgress; // only while queued/running
+  result?: ScanResult; // only when status === "completed"
+  error?: ScanJobError; // only when status === "failed"
+}
+
+interface ScanProgress {
+  phase: string;
+  percent: number; // 0–100
+  updatedAt: string; // ISO 8601
+}
+
+interface ScanJobError {
+  message: string;
+  phase?: string; // e.g. "timeout", "goto", "axe_analyze"
+}
+
+// --- Result (status === "completed") ---
+
+interface ScanResult {
+  url: string;
+  normalizedUrl: string;
+  title: string;
+  statusCode: number;
+  screenshotDataUrl: string | null; // "data:image/jpeg;base64,..." when requested
+  violations: ScanViolation[];
+  passedRules: ScanRuleSummary[];
+  manualRules: ScanRuleSummary[];
+  notApplicableRules: ScanRuleSummary[];
+  passesCount: number;
+  incompleteCount: number;
+  inapplicableCount: number;
+  overlayDetected: boolean;
+  score: number; // 0–100, higher is better
+  timestamp: string; // ISO 8601
+}
+
+interface ScanViolation {
+  ruleId: string;
+  title: string;
+  description: string | null;
+  impact: "critical" | "serious" | "moderate" | "minor";
+  wcagCriteria: string[];
+  wcagLevel: "a" | "aa" | "aaa" | null;
+  helpUrl: string | null;
+  nodes: ScanViolationNode[];
+}
+
+interface ScanViolationNode {
+  target: string[]; // CSS selectors
+  htmlSnippet: string | null;
+  failureSummary: string | null;
+  xpath: string | null;
+}
+
+interface ScanRuleSummary {
+  ruleId: string;
+  title: string;
+  description: string | null;
+  impact: "critical" | "serious" | "moderate" | "minor" | null;
+  wcagCriteria: string[];
+  wcagLevel: "a" | "aa" | "aaa" | null;
+  helpUrl: string | null;
+  nodesChecked: number;
+  selectors: string[];
+}
+
+// --- Errors (non-2xx on POST, or poll errors) ---
+
+interface ErrorResponse {
+  error: string;
+  message: string;
+  phase?: string;
+}
+```
+
+### Progress phases (while `running`)
+
+| `progress.phase` | ~`percent` |
+|------------------|------------|
+| `launch_browser` | 12 |
+| `browser_context` | 18 |
+| `new_page` | 24 |
+| `goto` | 38 |
+| `page_prepare` | 52 |
+| `screenshot` | 62 |
+| `axe_analyze` | 68–75 |
+
+Use `progress.percent` for a progress bar. `progress` is cleared when the job completes or fails.
 
 ---
 
@@ -142,12 +279,12 @@ Queue an accessibility scan.
 
 **Error responses**
 
-| Status | When |
-|--------|------|
-| `400` | Invalid body, URL, or SSRF-blocked target |
-| `401` | Missing or invalid API key |
-| `429` | Rate limit exceeded |
-| `503` | At concurrent scan capacity or server shutting down |
+| Status | `error` | When |
+|--------|---------|------|
+| `400` | `Bad Request` | Invalid body, URL, or SSRF-blocked target |
+| `401` | `Unauthorized` | Missing or invalid API key |
+| `429` | `Too Many Requests` | Rate limit exceeded |
+| `503` | `Service Unavailable` | At concurrent scan capacity or server shutting down |
 
 Error body:
 
@@ -290,6 +427,14 @@ Default limits (configurable on the server):
 
 When exceeded: `429 Too Many Requests` or `503 Service Unavailable` (at capacity).
 
+Rate-limited responses include standard headers:
+
+```http
+RateLimit-Limit: 20
+RateLimit-Remaining: 0
+RateLimit-Reset: 60
+```
+
 ---
 
 ## Production examples
@@ -369,13 +514,54 @@ Configure your main app with:
 | Setting | Value |
 |---------|-------|
 | Scanner base URL | `https://scanner.clearweb.co.il` |
-| API key | Shared secret from server `.env` (`API_KEY`) |
+| API key | Shared secret from server `.env` (`API_KEY`) — **server-side only** |
 
 Typical flow:
 
 1. User requests an audit in Clearweb
-2. Backend calls `POST /api/scan` with the target URL
-3. Backend polls `GET /api/scan/:jobId` until complete
+2. **Your backend** calls `POST /api/scan` with the target URL
+3. **Your backend** polls `GET /api/scan/:jobId` until complete
 4. Store `result.score`, `result.violations`, and related fields in your database
+5. Expose job status/result to the FE via your own API (without the scanner API key)
+
+### Backend integration (TypeScript)
+
+```typescript
+async function runScan(targetUrl: string): Promise<ScanJobResponse> {
+  const base = "https://scanner.clearweb.co.il";
+  const headers = {
+    Authorization: `Bearer ${process.env.SCANNER_API_KEY}`,
+    "Content-Type": "application/json",
+  };
+
+  const createRes = await fetch(`${base}/api/scan`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      url: targetUrl,
+      options: { includeScreenshot: false },
+    }),
+  });
+
+  if (!createRes.ok) {
+    throw (await createRes.json()) as ErrorResponse;
+  }
+
+  const { jobId } = (await createRes.json()) as ScanJobCreatedResponse;
+
+  for (;;) {
+    const pollRes = await fetch(`${base}/api/scan/${jobId}`, { headers });
+    const job = (await pollRes.json()) as ScanJobResponse;
+
+    if (job.status === "completed" || job.status === "failed") {
+      return job;
+    }
+
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
+```
+
+Your FE should call **your** API (e.g. `POST /api/audits`, `GET /api/audits/:id`), not the scanner directly.
 
 Poll every **2–3 seconds**. Most scans finish in **15–45 seconds**.
