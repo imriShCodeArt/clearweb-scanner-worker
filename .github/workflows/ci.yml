@@ -53,4 +53,6 @@ jobs:
         run: docker build -t clearweb-scanner-worker:ci .
 
       - name: Smoke test container
+        env:
+          API_KEY: ci-test-key
         run: bash scripts/docker-smoke.sh clearweb-scanner-worker:ci

@@ -61,6 +61,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Smoke test published image
+        env:
+          API_KEY: ci-test-key
         run: |
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
           docker pull "$IMAGE"

@@ -29,6 +29,16 @@ describe("config", () => {
     expect(config.nodeEnv).toBe("production");
   });
 
+  it("accepts a short API_KEY in production when CI=true", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CI", "true");
+    vi.stubEnv("API_KEY", "ci-test-key");
+
+    const { config } = await import("./env.js");
+    expect(config.apiKey).toBe("ci-test-key");
+    expect(config.nodeEnv).toBe("production");
+  });
+
   it("parses TRUST_PROXY as a hop count", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("TRUST_PROXY", "2");
