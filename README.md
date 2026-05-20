@@ -2,6 +2,10 @@
 
 Containerized Node.js worker that scans websites for accessibility (a11y) issues using Playwright and axe-core.
 
+**Production API:** [https://scanner.clearweb.co.il](https://scanner.clearweb.co.il)
+
+Full API reference: **[docs/API.md](./docs/API.md)**
+
 ## Stack
 
 - Node.js 24
@@ -11,7 +15,27 @@ Containerized Node.js worker that scans websites for accessibility (a11y) issues
 - @axe-core/playwright
 - Docker
 
-## Quick start
+## Production usage
+
+Base URL: `https://scanner.clearweb.co.il`
+
+All scan routes require `Authorization: Bearer <API_KEY>` or `X-Api-Key`.
+
+```bash
+# Queue a scan
+curl -X POST https://scanner.clearweb.co.il/api/scan \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com"}'
+
+# Poll for results (replace <jobId>)
+curl -H "Authorization: Bearer $API_KEY" \
+  https://scanner.clearweb.co.il/api/scan/<jobId>
+```
+
+See [docs/API.md](./docs/API.md) for request/response schemas, error codes, and integration examples (Bash, PowerShell, JavaScript).
+
+## Local development
 
 ```bash
 yarn install
@@ -20,25 +44,13 @@ cp .env.example .env
 yarn dev
 ```
 
-Health check (no auth): `GET http://localhost:3000/api/health`
-
-Scan a URL (requires API key) — returns immediately with a job ID:
+Local base URL: `http://localhost:3000`
 
 ```bash
-curl -X POST http://localhost:3000/api/scan \
-  -H "Authorization: Bearer $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"url":"https://example.com","options":{"includeScreenshot":true}}'
+curl http://localhost:3000/api/health
 ```
 
-Poll for results:
-
-```bash
-curl -H "Authorization: Bearer $API_KEY" \
-  http://localhost:3000/api/scan/<jobId>
-```
-
-PowerShell:
+PowerShell (local):
 
 ```powershell
 $job = Invoke-RestMethod -Method POST `
@@ -52,13 +64,30 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer $env:API_KEY" }
 ```
 
-Job status progresses through `queued` → `running` → `completed` or `failed`. Completed jobs include full axe results, score (0–100), and optional screenshot.
+## API summary
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/health` | No | Liveness |
+| `GET` | `/api/health/ready` | No | Readiness (Chromium) |
+| `GET` | `/api/metrics` | Optional | Prometheus metrics |
+| `POST` | `/api/scan` | Yes | Queue scan → `202` + `jobId` |
+| `GET` | `/api/scan/:jobId` | Yes | Poll status, progress, result |
+
+Job lifecycle: `queued` → `running` → `completed` | `failed`
+
+Completed results include axe violations, rule summaries, accessibility score (0–100), page metadata, and optional screenshot.
+
+**HTTP status codes:** `400` validation/SSRF · `401` auth · `404` unknown job · `429` rate limit · `503` at capacity · `504` scan timeout (failed job)
+
+Details, field definitions, and production examples: **[docs/API.md](./docs/API.md)**
 
 ## Security
 
-- `POST /api/scan` requires `Authorization: Bearer <API_KEY>` or `X-Api-Key`
+- Scan routes require API key authentication
 - URLs are validated and DNS-resolved before scanning (SSRF protection)
-- Rate limiting and concurrent scan caps protect the VPS from overload
+- Rate limiting and concurrent scan caps protect the server from overload
+- Production binds to `127.0.0.1` on the VPS; public access is via TLS reverse proxy only
 - Chromium is reused across scans (one browser, fresh context per request)
 
 ## Docker
@@ -69,7 +98,7 @@ Set `API_KEY` in `.env` (at least 32 characters for production), then:
 docker compose up --build
 ```
 
-For production deployment (GHCR image, VPS, nginx, monitoring), see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+For VPS deployment (GHCR, GitHub Actions, nginx), see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 
 ## Scripts
 
@@ -81,14 +110,16 @@ For production deployment (GHCR image, VPS, nginx, monitoring), see **[DEPLOYMEN
 | `yarn lint` | ESLint |
 | `yarn typecheck` | TypeScript check |
 | `yarn test` | Run unit tests |
-| `yarn test:integration` | Run Playwright scan against example.com (set `RUN_INTEGRATION_TESTS=true`) |
+| `yarn test:integration` | Playwright scan against example.com (`RUN_INTEGRATION_TESTS=true`) |
 
 ## Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3000` | HTTP port |
-| `HOST` | `0.0.0.0` | Bind address |
+| `PORT` | `3000` | Container HTTP port |
+| `HOST` | `0.0.0.0` | Container bind address |
+| `HOST_PORT` | `3000` | Host port in Docker Compose (`127.0.0.1:HOST_PORT:3000`) |
+| `BIND_HOST` | `127.0.0.1` | Host bind address in Docker Compose |
 | `NODE_ENV` | `development` | Environment |
 | `API_KEY` | *(required)* | Bearer token for scan requests (min 32 chars in production) |
 | `METRICS_API_KEY` | *(optional)* | When set, protects `GET /api/metrics` |
@@ -103,62 +134,8 @@ For production deployment (GHCR image, VPS, nginx, monitoring), see **[DEPLOYMEN
 | `LOG_LEVEL` | `info` / `debug` | Pino log level |
 | `PLAYWRIGHT_HEADLESS` | `true` | Run browser headless |
 
-## Operations
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/health` | Liveness — process is up |
-| `GET /api/health/ready` | Readiness — Chromium available (used by Docker healthcheck) |
-| `GET /api/metrics` | Prometheus metrics (optional API key via `METRICS_API_KEY`) |
-
-Docker Compose binds to **127.0.0.1** by default, sets **4 GB / 2 CPU** limits, log rotation, and a **35s** stop grace period for draining scans on shutdown.
-
-## API
-
-### `GET /api/health`
-
-Returns service health and uptime. No authentication required.
-
-### `GET /api/health/ready`
-
-Returns `200` when Chromium is ready to scan. Returns `503` during shutdown or if the browser cannot launch.
-
-### `GET /api/metrics`
-
-Prometheus exposition format. When `METRICS_API_KEY` is set, requires the same Bearer / `X-Api-Key` auth as scan routes. Otherwise restrict access at the network layer.
-
-### `POST /api/scan`
-
-Requires API key header. Returns `202 Accepted` with a job ID.
-
-```json
-{
-  "url": "https://example.com",
-  "options": {
-    "timeout": 30000,
-    "includeScreenshot": false
-  }
-}
-```
-
-Response:
-
-```json
-{
-  "jobId": "…",
-  "status": "queued",
-  "url": "https://example.com"
-}
-```
-
-### `GET /api/scan/:jobId`
-
-Requires API key header. Returns job status, progress, result, or error.
-
-Completed `result` includes `violations`, `passedRules`, `manualRules`, `notApplicableRules`, `score`, `overlayDetected`, and related page metadata.
-
-Error codes: `400` validation/SSRF, `401` auth, `404` unknown job, `429` rate limit, `503` at capacity. Failed jobs include `error.phase` and `error.message` (e.g. timeout → phase `timeout`).
+See [.env.example](./.env.example) for the full list.
 
 ## CI
 
-GitHub Actions runs lint, typecheck, build, tests, and a Docker smoke test on push/PR to `main`. Pushes to `main` also publish a container image to GHCR and can auto-deploy to a VPS when configured — see [DEPLOYMENT.md](./DEPLOYMENT.md).
+GitHub Actions runs lint, typecheck, build, tests, and a Docker smoke test on push/PR to `main`. Pushes to `main` publish a container image to GHCR and can auto-deploy to the VPS — see [DEPLOYMENT.md](./DEPLOYMENT.md).

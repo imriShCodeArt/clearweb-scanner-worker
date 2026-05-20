@@ -219,7 +219,7 @@ Highlights:
 - Do not expose `/api/metrics` publicly; scrape from localhost or an internal network.
 
 ```bash
-sudo certbot --nginx -d scanner.example.com
+sudo certbot --nginx -d scanner.clearweb.co.il
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
