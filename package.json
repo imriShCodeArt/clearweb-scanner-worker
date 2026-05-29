@@ -39,7 +39,7 @@
     "supertest": "^7.1.1",
     "tsx": "^4.19.4",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.32.1",
+    "typescript-eslint": "^8.60.0",
     "vitest": "^4.1.7"
   },
   "packageManager": "yarn@4.12.0",
