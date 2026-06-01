@@ -13,6 +13,10 @@ import { type Browser, type Page, chromium } from "playwright";
 import { config } from "../../config/env.js";
 import { isWcagMappedViolation } from "../audit/wcagViolation.js";
 import { logger } from "../logger.js";
+import {
+  assertSuccessfulPageLoad,
+  resolveScannerUserAgent,
+} from "./page-load.js";
 import { updateScanProgress } from "./scan-progress.js";
 
 /**
@@ -401,9 +405,12 @@ async function runAxeScanWithBrowser(
   const includeScreenshot = options.includeScreenshot ?? false;
   const context = await inScanPhase("browser_context", () =>
     browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (compatible; a11y-scanner/1.0; +https://github.com/a11y-agency)",
+      userAgent: resolveScannerUserAgent(config.playwright.userAgent),
       viewport: { width: 1280, height: 800 },
+      locale: "he-IL",
+      extraHTTPHeaders: {
+        "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
     }),
   );
 
@@ -444,6 +451,8 @@ async function runAxeScanWithBrowser(
       }),
     );
     await reportScanProgress(scanId, 'goto', 38);
+
+    assertSuccessfulPageLoad(statusCode, targetUrl);
 
     // Let scripts and async resources finish loading.
     await inScanPhase('page_prepare', async () => {

@@ -125,6 +125,7 @@ export const config = {
   sentryDsn: parseOptionalSecret(process.env.SENTRY_DSN),
   playwright: {
     headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
+    userAgent: process.env.SCANNER_USER_AGENT?.trim() || undefined,
   },
 } as const;
 

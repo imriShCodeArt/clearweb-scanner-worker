@@ -1,4 +1,5 @@
 import { ScanCapacityError } from "../services/concurrency.js";
+import { PageLoadHttpError } from "./scanner/page-load.js";
 import { ScanUrlError } from "./scanner/url.js";
 import { ScanTimeoutError } from "./scanner/scan-timeout.js";
 
@@ -40,6 +41,17 @@ export function mapErrorToResponse(err: unknown): {
         error: "Gateway Timeout",
         message: err.message,
         phase: "timeout",
+      },
+    };
+  }
+
+  if (err instanceof PageLoadHttpError) {
+    return {
+      status: 502,
+      body: {
+        error: "Bad Gateway",
+        message: err.message,
+        phase: "page_load",
       },
     };
   }
