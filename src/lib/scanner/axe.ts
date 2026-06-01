@@ -244,8 +244,9 @@ async function revealLazyContent(page: Page): Promise<void> {
     }
     window.scrollTo(0, 0);
   });
-  // Wait for any network requests triggered by lazy loading to settle.
-  await page.waitForLoadState('networkidle').catch(() => undefined);
+  // Wait for lazy-triggered requests to settle. Heavy sites with background
+  // polling never reach true networkidle, so cap at 5s and proceed regardless.
+  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 }
 
 /**
@@ -451,7 +452,9 @@ async function runAxeScanWithBrowser(
 
     // Let scripts and async resources finish loading.
     await inScanPhase('page_prepare', async () => {
-      await page.waitForLoadState('networkidle').catch(() => undefined);
+      // Heavy sites with background polling never reach true networkidle —
+      // cap at 5s so the budget isn't consumed before axe even starts.
+      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
       await dismissConsentBanners(page);
       await revealLazyContent(page);
       await page.waitForTimeout(400);
