@@ -27,13 +27,15 @@ export function assertSuccessfulPageLoad(
   }
 }
 
-/** Default Playwright context UA — realistic Chrome to reduce WAF false positives. */
-export const DEFAULT_SCANNER_USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-
+/**
+ * Return the configured user-agent override, or undefined to let Playwright
+ * use the real Chromium UA. A hardcoded UA risks a version mismatch with the
+ * sec-ch-ua client-hint headers that Chromium sends automatically, which WAFs
+ * detect as a bot signal and respond with 403.
+ */
 export function resolveScannerUserAgent(
   configured: string | undefined,
-): string {
+): string | undefined {
   const trimmed = configured?.trim();
-  return trimmed || DEFAULT_SCANNER_USER_AGENT;
+  return trimmed || undefined;
 }
