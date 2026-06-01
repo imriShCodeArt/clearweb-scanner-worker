@@ -407,7 +407,6 @@ async function runAxeScanWithBrowser(
     browser.newContext({
       userAgent: resolveScannerUserAgent(config.playwright.userAgent),
       viewport: { width: 1280, height: 800 },
-      locale: "he-IL",
     }),
   );
 
