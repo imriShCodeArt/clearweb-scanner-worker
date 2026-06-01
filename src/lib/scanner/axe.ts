@@ -430,14 +430,13 @@ async function runAxeScanWithBrowser(
     await reportScanProgress(scanId, 'new_page', 24);
     page.setDefaultNavigationTimeout(config.scanNavigationTimeoutMs);
 
-    // Track the HTTP status of the main document response only.
+    // Track the HTTP status of the main-frame document. Always update so that
+    // redirect chains (301/302/307/308 → 200) resolve to the final status code.
     let statusCode = 0;
     page.on('response', (response) => {
       if (
         response.request().resourceType() === 'document' &&
-        (statusCode === 0 ||
-          response.url() === targetUrl ||
-          response.url().replace(/\/$/, '') === targetUrl.replace(/\/$/, ''))
+        response.frame() === page.mainFrame()
       ) {
         statusCode = response.status();
       }
