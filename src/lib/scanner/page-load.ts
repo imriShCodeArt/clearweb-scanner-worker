@@ -28,14 +28,19 @@ export function assertSuccessfulPageLoad(
 }
 
 /**
- * Return the configured user-agent override, or undefined to let Playwright
- * use the real Chromium UA. A hardcoded UA risks a version mismatch with the
- * sec-ch-ua client-hint headers that Chromium sends automatically, which WAFs
- * detect as a bot signal and respond with 403.
+ * Build a non-headless Chrome User-Agent string from the real Chromium version
+ * reported by Playwright (e.g. "148.0.7778.96"). Headless Chromium advertises
+ * "HeadlessChrome" in its UA, which WAFs like Cloudflare immediately block.
+ * Replacing it with "Chrome" while keeping the exact version avoids that signal
+ * without introducing a version mismatch with sec-ch-ua or TLS fingerprints.
+ *
+ * If a SCANNER_USER_AGENT override is configured it takes precedence.
  */
 export function resolveScannerUserAgent(
+  browserVersion: string,
   configured: string | undefined,
-): string | undefined {
+): string {
   const trimmed = configured?.trim();
-  return trimmed || undefined;
+  if (trimmed) return trimmed;
+  return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browserVersion} Safari/537.36`;
 }

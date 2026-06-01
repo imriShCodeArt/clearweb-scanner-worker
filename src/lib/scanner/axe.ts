@@ -184,6 +184,9 @@ const CONSENT_DISMISS_SELECTORS = [
 async function launchChromiumForScan() {
   return chromium.launch({
     headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
+    // Suppress navigator.webdriver so headless mode is not trivially
+    // detectable by JS-based bot checks (e.g. Cloudflare Bot Management).
+    args: ['--disable-blink-features=AutomationControlled'],
   });
 }
 
@@ -404,10 +407,10 @@ async function runAxeScanWithBrowser(
 ): Promise<PageScanResult> {
   const scanId = options.scanId;
   const includeScreenshot = options.includeScreenshot ?? false;
-  const userAgent = resolveScannerUserAgent(config.playwright.userAgent);
+  const userAgent = resolveScannerUserAgent(browser.version(), config.playwright.userAgent);
   const context = await inScanPhase("browser_context", () =>
     browser.newContext({
-      ...(userAgent ? { userAgent } : {}),
+      userAgent,
       viewport: { width: 1280, height: 800 },
     }),
   );

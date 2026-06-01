@@ -8,7 +8,11 @@ export class BrowserPool {
 
   async getBrowser(): Promise<Browser> {
     if (!this.browser?.isConnected()) {
-      this.browser = await chromium.launch({ headless: this.headless });
+      this.browser = await chromium.launch({
+        headless: this.headless,
+        // Suppress navigator.webdriver to avoid trivial headless detection.
+        args: ['--disable-blink-features=AutomationControlled'],
+      });
     }
 
     return this.browser;
