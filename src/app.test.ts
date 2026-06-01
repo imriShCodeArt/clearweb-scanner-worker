@@ -18,6 +18,7 @@ import { resetJobQueueForTests } from "./services/job-queue.js";
 import { resetJobStoreForTests } from "./services/job-store.js";
 import { resetShutdownStateForTests } from "./services/shutdown.js";
 import type { ScanResponse } from "./types/index.js";
+import packageJson from "../package.json" with { type: "json" };
 
 const authHeader = { Authorization: `Bearer ${config.apiKey}` };
 
@@ -48,7 +49,7 @@ describe("health endpoint", () => {
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       status: "ok",
-      version: "0.1.0",
+      version: packageJson.version,
     });
   });
 });
