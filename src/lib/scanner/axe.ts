@@ -214,7 +214,7 @@ async function dismissConsentBanners(page: Page): Promise<void> {
   for (const selector of CONSENT_DISMISS_SELECTORS) {
     try {
       const el = page.locator(selector).first();
-      const visible = await el.isVisible({ timeout: 600 }).catch(() => false);
+      const visible = await el.isVisible({ timeout: 150 }).catch(() => false);
       if (visible) {
         await el.click({ timeout: 1_200 });
         // Let the banner animate out before continuing.
@@ -452,9 +452,6 @@ async function runAxeScanWithBrowser(
 
     // Let scripts and async resources finish loading.
     await inScanPhase('page_prepare', async () => {
-      // Heavy sites with background polling never reach true networkidle —
-      // cap at 5s so the budget isn't consumed before axe even starts.
-      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
       await dismissConsentBanners(page);
       await revealLazyContent(page);
       await page.waitForTimeout(400);
